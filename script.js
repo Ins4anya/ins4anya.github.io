@@ -249,15 +249,18 @@ function updateBattleScreen(charA, charB) {
 }
 
 function setCard(side, char) {
-  document.getElementById(`name-${side}`).textContent    = char.name;
-  document.getElementById(`game-${side}`).textContent    = char.game;
+  document.getElementById(`name-${side}`).textContent     = char.name;
+  document.getElementById(`game-${side}`).textContent     = char.game;
   document.getElementById(`fallback-${side}`).textContent = char.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
 
   const img = document.getElementById(`img-${side}`);
   img.classList.remove('error');
-  img.alt = char.name;
-  img.src = char.img || '';
+  img.alt  = char.name;
+  img.src  = '';                                      // сбрасываем старую картинку
   img.onerror = () => img.classList.add('error');
+  requestAnimationFrame(() => {                       // ждём один кадр...
+    img.src = char.img || '';                         // ...и ставим новую
+  });
 }
 
 /** Обновляет прогресс-бар */
