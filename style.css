@@ -1,0 +1,841 @@
+/* ══════════════════════════════════════════════════════
+   SPIKE CHUNSOFT WAIFU SORTER — style.css
+   Тёмная тема, вдохновлённая Danganronpa & Rain Code
+   Палитра:
+     --bg:       #0a0a0f  (почти чёрный, синеватый)
+     --surface:  #111118  (поверхность карточек)
+     --border:   #2a2a38  (бордюры)
+     --red:      #e8003a  (алый акцент — кровь Монокумы)
+     --pink:     #ff2d78  (неоново-розовый — Junko energy)
+     --gold:     #f5c842  (золото подиума)
+     --text:     #e8e8f0  (основной текст)
+     --muted:    #6b6b85  (приглушённый)
+   Шрифты:
+     Display: Rajdhani 700 (угловатый, геймерский)
+     Body:    Inter 400/500 (читабельный)
+══════════════════════════════════════════════════════ */
+
+/* ── Сброс и базовые переменные ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0a0a0f;
+  --surface:  #111118;
+  --surface2: #18181f;
+  --border:   #2a2a38;
+  --red:      #e8003a;
+  --pink:     #ff2d78;
+  /* --accent — единственная переменная для акцентного цвета,
+     меняется через JS при выборе пользователя */
+  --accent:   #ff2d78;
+  --gold:     #f5c842;
+  --silver:   #c0c0d0;
+  --bronze:   #cd7f3a;
+  --text:     #e8e8f0;
+  --muted:    #6b6b85;
+  --radius:   10px;
+  --transition: 0.18s ease;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* ── Шрифт для заголовков ── */
+.logo-title, .result-title, .vs-text, .card-name {
+  font-family: 'Rajdhani', sans-serif;
+}
+
+/* ── Акцентный цвет ── */
+.accent { color: var(--accent); }
+
+/* ══════════════════════════════
+   ЭКРАНЫ (переключение)
+══════════════════════════════ */
+.screen {
+  display: none;
+  min-height: 100dvh;
+  position: relative;
+  animation: fadeIn 0.3s ease;
+}
+.screen.active { display: flex; flex-direction: column; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ══════════════════════════════
+   ЛЕНТА МОНОКУМЫ (декор)
+   — чёрно-красные диагональные полосы
+══════════════════════════════ */
+.monokuma-tape {
+  height: 12px;
+  width: 100%;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--red) 0px,
+    var(--red) 10px,
+    #0a0a0f 10px,
+    #0a0a0f 20px
+  );
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+/* ══════════════════════════════
+   СТАРТОВЫЙ ЭКРАН
+══════════════════════════════ */
+.start-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  padding: 48px 24px 48px;
+  max-width: 760px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Логотип */
+.logo-block { text-align: center; }
+
+.logo-eyebrow {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.logo-title {
+  font-size: clamp(3rem, 12vw, 6rem);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+/* Подчёркивание акцента — двойная линия как в диалоговых боксах DR */
+.logo-title .accent {
+  position: relative;
+  display: inline-block;
+}
+.logo-title .accent::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -4px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent));
+  border-radius: 2px;
+}
+
+.logo-sub {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* ── Блок фильтров ── */
+.filter-block {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.filter-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* Кастомный чекбокс */
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 10px 14px;
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  transition: border-color var(--transition), background var(--transition);
+  user-select: none;
+}
+.filter-item:hover { border-color: var(--accent); background: #1a1a24; }
+.filter-item.checked { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface2)); }
+
+.filter-item input[type="checkbox"] { display: none; }
+
+.filter-checkbox-ui {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: border-color var(--transition), background var(--transition);
+}
+.filter-item.checked .filter-checkbox-ui {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.filter-checkbox-ui::after {
+  content: '';
+  display: none;
+  width: 5px; height: 9px;
+  border: 2px solid #fff;
+  border-top: none; border-left: none;
+  transform: rotate(42deg) translateY(-1px);
+}
+.filter-item.checked .filter-checkbox-ui::after { display: block; }
+
+.filter-label {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.filter-count {
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--border);
+  padding: 1px 7px;
+  border-radius: 20px;
+}
+
+/* ── Статистика ── */
+.stat-block {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stat-item {
+  text-align: center;
+}
+.stat-num {
+  display: block;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ══════════════════════════════
+   КНОПКИ
+══════════════════════════════ */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent));
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 16px 36px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity var(--transition), transform var(--transition), box-shadow var(--transition);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 28px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.btn-primary:active { transform: translateY(0); }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 22px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  padding: 10px 22px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: color var(--transition);
+}
+.btn-ghost:hover { color: var(--text); }
+
+.btn-secondary.small, .btn-ghost.small { padding: 8px 18px; font-size: 0.85rem; }
+
+/* ══════════════════════════════
+   ЭКРАН БИТВЫ
+══════════════════════════════ */
+.battle-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.battle-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.progress-wrap {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent));
+  border-radius: 3px;
+  transition: width 0.4s ease;
+  width: 0%;
+}
+
+.progress-text {
+  font-size: 0.8rem;
+  color: var(--muted);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Арена */
+.battle-arena {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 24px 16px 16px;
+}
+
+/* ── Карточка персонажа ── */
+.char-card {
+  flex: 1;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 1.5);
+  cursor: pointer;
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Глитч-эффект при hover */
+.char-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 3%, transparent) 0%, transparent 60%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.char-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 32px color-mix(in srgb, var(--accent) 15%, transparent), inset 0 0 20px color-mix(in srgb, var(--accent) 4%, transparent);
+  transform: translateY(-3px);
+}
+.char-card:hover::before { opacity: 1; }
+.char-card:active { transform: translateY(-1px); }
+
+/* Изображение */
+.card-img-wrap {
+  width: 100%;
+  aspect-ratio: 3/4;
+  border-radius: calc(var(--radius));
+  overflow: hidden;
+  background: var(--surface2);
+  position: relative;
+}
+
+.card-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+  position: relative; /* и это */
+  z-index: 1;  
+}
+.card-img.error { display: none; }
+
+/* Заглушка если нет картинки */
+.card-img-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--border);
+  background: var(--surface2);
+  letter-spacing: 0.05em;
+  z-index: 0; /* добавил */
+}
+
+.card-info {
+  width: 100%;
+  text-align: center;
+}
+
+.card-game {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+  opacity: 0.85;
+}
+
+.card-name {
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+}
+
+/* Кнопка "Выбрать" под карточкой */
+.btn-pick {
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+.btn-pick:hover {
+  background: linear-gradient(135deg, var(--accent), var(--accent));
+  border-color: transparent;
+  color: #fff;
+}
+
+/* Разделитель VS */
+.vs-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  flex-shrink: 0;
+  position: relative;
+}
+.vs-text {
+  font-size: clamp(1.5rem, 5vw, 2.5rem);
+  font-weight: 700;
+  color: var(--accent);
+  text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 60%, transparent);
+  letter-spacing: 0.05em;
+}
+
+/* Дополнительные кнопки */
+.battle-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 24px 24px;
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════
+   ЭКРАН РЕЗУЛЬТАТОВ
+══════════════════════════════ */
+.result-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  padding: 48px 24px;
+  max-width: 860px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.result-header { text-align: center; }
+
+.result-title {
+  font-size: clamp(2.5rem, 8vw, 4.5rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+/* ── Подиум Топ-3 ── */
+.podium-wrap {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+}
+
+.podium-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.podium-card:nth-child(1) { order: 2; } /* #1 в центре */
+.podium-card:nth-child(2) { order: 1; } /* #2 слева */
+.podium-card:nth-child(3) { order: 3; } /* #3 справа */
+
+.podium-img-wrap {
+  border-radius: calc(var(--radius) * 1.2);
+  overflow: hidden;
+  border: 3px solid var(--border);
+  background: var(--surface2);
+  position: relative;
+}
+.podium-card:nth-child(1) .podium-img-wrap {
+  width: 120px; height: 160px;
+  border-color: var(--gold);
+  box-shadow: 0 0 24px rgba(245, 200, 66, 0.35);
+}
+.podium-card:nth-child(2) .podium-img-wrap {
+  width: 96px; height: 128px;
+  border-color: var(--silver);
+  box-shadow: 0 0 16px rgba(192, 192, 208, 0.25);
+}
+.podium-card:nth-child(3) .podium-img-wrap {
+  width: 84px; height: 112px;
+  border-color: var(--bronze);
+  box-shadow: 0 0 14px rgba(205, 127, 58, 0.2);
+}
+
+.podium-img {
+  width: 100%; height: 100%; object-fit: cover; object-position: top; display: block;
+  position: relative; /* ← добавь */
+  z-index: 1;         /* ← добавь */
+}
+.podium-img-fallback {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Rajdhani', sans-serif; font-size: 1.8rem; font-weight: 700;
+  color: var(--border);
+  z-index: 0; /* ← добавил */
+}
+.podium-img.error { display: none; }
+
+.podium-rank {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+.podium-card:nth-child(1) .podium-rank { color: var(--gold); font-size: 1.3rem; }
+.podium-card:nth-child(2) .podium-rank { color: var(--silver); }
+.podium-card:nth-child(3) .podium-rank { color: var(--bronze); }
+
+.podium-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  max-width: 110px;
+  line-height: 1.2;
+}
+
+/* ── Сетка результатов ── */
+.results-grid {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.result-row {
+  display: grid;
+  grid-template-columns: 44px 52px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color var(--transition);
+}
+.result-row:hover { border-color: #3a3a50; }
+
+.result-rank {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: right;
+  width: 44px;
+}
+.result-rank.top1 { color: var(--gold); font-size: 1.1rem; }
+.result-rank.top2 { color: var(--silver); }
+.result-rank.top3 { color: var(--bronze); }
+
+.result-thumb {
+  width: 52px; height: 52px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface2);
+  flex-shrink: 0;
+  position: relative;
+}
+.result-thumb img {
+  width: 100%; height: 100%; object-fit: cover; object-position: top;
+  position: relative; /* ← добавь */
+  z-index: 1;         /* ← добавь */
+}
+.result-thumb img.error { display: none; }
+.result-thumb-fallback {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Rajdhani', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--border);
+  z-index: 0;
+}
+
+.result-info { min-width: 0; }
+.result-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.result-game {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-score {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Кнопки результатов */
+.result-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Toast */
+.copy-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 10px 24px;
+  border-radius: 40px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 100;
+}
+.copy-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ══════════════════════════════
+   ПИКЕР АКЦЕНТНОГО ЦВЕТА
+══════════════════════════════ */
+.color-block {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.color-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Кружок-свотч */
+.color-swatch {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: var(--swatch, #888);
+  cursor: pointer;
+  transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+  flex-shrink: 0;
+  position: relative;
+  outline: none;
+}
+.color-swatch:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--swatch, var(--accent)) 40%, transparent);
+}
+.color-swatch.active {
+  border-color: var(--text);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 50%, transparent);
+  transform: scale(1.1);
+}
+
+/* Специальный свотч для произвольного цвета */
+.custom-swatch {
+  background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.custom-swatch input[type="color"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%; height: 100%;
+  border: none;
+  padding: 0;
+}
+.custom-icon {
+  font-size: 0.9rem;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ══════════════════════════════
+   АДАПТИВНОСТЬ
+══════════════════════════════ */
+@media (max-width: 680px) {
+  /* Стартовый экран */
+  .filter-grid { grid-template-columns: 1fr; }
+
+  /* Битва: карточки вертикально */
+  .battle-arena {
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 16px 8px;
+    gap: 0;
+  }
+  .char-card {
+    max-width: 100%;
+    width: 100%;
+    flex-direction: row;
+    gap: 12px;
+    padding: 14px;
+  }
+  .card-img-wrap {
+    width: 80px;
+    height: 100px;
+    flex-shrink: 0;
+    aspect-ratio: unset;
+  }
+  .card-info { text-align: left; }
+  .btn-pick { display: none; } /* на мобиле — клик по карточке */
+
+  .vs-divider { padding: 10px 0; }
+  .vs-text { font-size: 1.3rem; }
+
+  /* Подиум */
+  .podium-card:nth-child(1) .podium-img-wrap { width: 90px; height: 120px; }
+  .podium-card:nth-child(2) .podium-img-wrap { width: 72px; height: 96px; }
+  .podium-card:nth-child(3) .podium-img-wrap { width: 64px; height: 85px; }
+
+  /* Таблица результатов */
+  .result-row { grid-template-columns: 36px 40px 1fr; }
+  .result-score { display: none; }
+  .result-thumb { width: 40px; height: 40px; }
+  .result-rank { width: 36px; }
+
+  .result-container { padding: 32px 16px; gap: 28px; }
+  .start-container { padding: 32px 16px; gap: 28px; }
+}
+
+@media (max-width: 400px) {
+  .battle-actions { flex-direction: column; align-items: center; }
+  .stat-block { gap: 16px; }
+}
+
+/* Уменьшаем анимации если пользователь предпочитает меньше движений */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

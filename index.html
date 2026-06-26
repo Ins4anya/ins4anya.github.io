@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Waifu Battle from SC games</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Google Fonts: Rajdhani (угловатый заголовочный) + Inter (читабельный основной) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════
+       СТАРТОВЫЙ ЭКРАН
+  ═══════════════════════════════════════════════ -->
+  <div id="screen-start" class="screen active">
+    <!-- Декоративная лента Монокумы -->
+    <div class="monokuma-tape top"></div>
+
+    <div class="start-container">
+      <div class="logo-block">
+        <span class="logo-eyebrow">SPIKE CHUNSOFT</span>
+        <h1 class="logo-title">WAIFU<br><span class="accent">BATTLE</span></h1>
+        <p class="logo-sub">Мой проект оценивания персонажей, среди игр серии danganronpa AI:SF и MDA: Rain Code</p>
+      </div>
+
+      <!-- Фильтры по играм -->
+      <div class="filter-block">
+        <h2 class="filter-title">Выбор игры</h2>
+        <div class="filter-grid" id="filter-grid">
+          <!-- Заполняется из JS -->
+        </div>
+        <button class="btn-secondary" id="btn-toggle-all">Снять все</button>
+      </div>
+
+      <!-- Выбор акцентного цвета -->
+      <div class="color-block">
+        <h2 class="filter-title">Цвет акцента</h2>
+        <div class="color-presets" id="color-presets">
+          <button class="color-swatch active" data-color="#ff2d78" style="--swatch: #ff2d78" title="Розовый (по умолч.)"></button>
+          <button class="color-swatch" data-color="#e8003a" style="--swatch: #e8003a" title="Красный"></button>
+          <button class="color-swatch" data-color="#ff6b00" style="--swatch: #ff6b00" title="Оранжевый"></button>
+          <button class="color-swatch" data-color="#f5c842" style="--swatch: #f5c842" title="Золотой"></button>
+          <button class="color-swatch" data-color="#00e676" style="--swatch: #00e676" title="Зелёный"></button>
+          <button class="color-swatch" data-color="#00cfff" style="--swatch: #00cfff" title="Голубой"></button>
+          <button class="color-swatch" data-color="#7c4dff" style="--swatch: #7c4dff" title="Фиолетовый"></button>
+          <button class="color-swatch" data-color="#ffffff" style="--swatch: #ffffff" title="Белый"></button>
+          <label class="color-swatch custom-swatch" title="Свой цвет">
+            <input type="color" id="color-custom" value="#ff2d78" />
+            <span class="custom-icon">✎</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Статистика -->
+      <div class="stat-block" id="stat-block">
+        <!-- Заполняется из JS -->
+      </div>
+
+      <button class="btn-primary" id="btn-start">
+        <span>Начать сортировку</span>
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="monokuma-tape bottom"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       ЭКРАН БИТВЫ
+  ═══════════════════════════════════════════════ -->
+  <div id="screen-battle" class="screen">
+    <header class="battle-header">
+      <span class="battle-label">КТО ЛУЧШЕ?</span>
+      <div class="progress-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <span class="progress-text" id="progress-text">0%</span>
+    </header>
+
+    <div class="battle-arena" id="battle-arena">
+      <!-- Левая карточка -->
+      <div class="char-card" id="card-left" data-side="left">
+        <div class="card-img-wrap">
+          <img class="card-img" id="img-left" src="" alt="" loading="lazy" />
+          <div class="card-img-fallback" id="fallback-left"></div>
+        </div>
+        <div class="card-info">
+          <span class="card-game" id="game-left"></span>
+          <h2 class="card-name" id="name-left"></h2>
+        </div>
+        <button class="btn-pick" id="btn-left">Выбрать</button>
+      </div>
+
+      <!-- Центральный разделитель -->
+      <div class="vs-divider">
+        <span class="vs-text">VS</span>
+      </div>
+
+      <!-- Правая карточка -->
+      <div class="char-card" id="card-right" data-side="right">
+        <div class="card-img-wrap">
+          <img class="card-img" id="img-right" src="" alt="" loading="lazy" />
+          <div class="card-img-fallback" id="fallback-right"></div>
+        </div>
+        <div class="card-info">
+          <span class="card-game" id="game-right"></span>
+          <h2 class="card-name" id="name-right"></h2>
+        </div>
+        <button class="btn-pick" id="btn-right">Выбрать</button>
+      </div>
+    </div>
+
+    <!-- Дополнительные кнопки -->
+    <div class="battle-actions">
+      <button class="btn-secondary small" id="btn-tie">♥ Обе нравятся</button>
+      <button class="btn-ghost small" id="btn-skip">Пропустить →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       ЭКРАН РЕЗУЛЬТАТОВ
+  ═══════════════════════════════════════════════ -->
+  <div id="screen-result" class="screen">
+    <div class="monokuma-tape top"></div>
+
+    <div class="result-container">
+      <div class="result-header">
+        <span class="logo-eyebrow">ФИНАЛЬНЫЙ РЕЙТИНГ</span>
+        <h1 class="result-title">Твой <span class="accent">Топ</span></h1>
+      </div>
+
+      <!-- Подиум (Топ-3) -->
+      <div class="podium-wrap" id="podium"></div>
+
+      <!-- Полная таблица -->
+      <div class="results-grid" id="results-grid"></div>
+
+      <!-- Кнопки экспорта -->
+      <div class="result-actions">
+        <button class="btn-primary" id="btn-copy">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M11 5V3a1 1 0 00-1-1H3a1 1 0 00-1 1v7a1 1 0 001 1h2" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          Скопировать результат
+        </button>
+        <button class="btn-secondary" id="btn-restart">Пройти заново</button>
+      </div>
+
+      <div class="copy-toast" id="copy-toast">✓ Скопировано в буфер!</div>
+    </div>
+
+    <div class="monokuma-tape bottom"></div>
+  </div>
+
+  <!-- Данные персонажей — редактируй этот файл чтобы добавить/убрать персонажей -->
+  <script src="characters.js"></script>
+  <!-- Логика приложения — алгоритм, UI, события -->
+  <script src="script.js"></script>
+</body>
+</html>
