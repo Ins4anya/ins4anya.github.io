@@ -254,13 +254,19 @@ function setCard(side, char) {
   document.getElementById(`fallback-${side}`).textContent = char.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
 
   const img = document.getElementById(`img-${side}`);
+  img.onload  = null;
+  img.onerror = null;          // сначала снимаем старые обработчики
   img.classList.remove('error');
-  img.alt  = char.name;
-  img.src  = '';                                      // сбрасываем старую картинку
+  img.alt = char.name;
+
+  const newSrc = char.img || '';
+  if (img.src !== newSrc && img.src !== window.location.origin + '/' + newSrc) {
+    img.src = newSrc;          // меняем src только если он реально изменился
+  } else {
+    img.src = newSrc;          // принудительно перезагружаем если тот же путь
+  }
+
   img.onerror = () => img.classList.add('error');
-  requestAnimationFrame(() => {                       // ждём один кадр...
-    img.src = char.img || '';                         // ...и ставим новую
-  });
 }
 
 /** Обновляет прогресс-бар */
