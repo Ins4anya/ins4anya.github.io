@@ -74,21 +74,141 @@ body {
 }
 
 /* ══════════════════════════════
+   ПЕРЕХОД: СМЫКАНИЕ ЛЕНТ
+   — две ленты-шторки съезжаются к центру экрана,
+     перекрывают его, и под прикрытием идёт смена экрана
+══════════════════════════════ */
+.tape-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  display: none;
+}
+.tape-transition.run { display: block; }
+
+/* Общий вид шторки — фон цвета страницы, полосатая кайма только по краю */
+.tape-shutter {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  background: var(--bg);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+}
+
+/* Тонкая диагональная полоса по смыкающейся кромке (как разметка опасной зоны) */
+.tape-shutter::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 14px;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--red) 0px,
+    var(--red) 12px,
+    #0a0a0f 12px,
+    #0a0a0f 24px
+  );
+}
+/* У верхней шторки полоса снизу (это её смыкающийся край) */
+.tape-shutter.top::after    { bottom: 0; }
+/* У нижней шторки полоса сверху */
+.tape-shutter.bottom::after { top: 0; }
+
+.tape-shutter.top    { top: 0;    transform: translateY(-100%); }
+.tape-shutter.bottom { bottom: 0; transform: translateY(100%); }
+
+/* Запуск: шторки съезжаются к центру, держатся, затем расходятся */
+.tape-transition.run .tape-shutter.top {
+  animation: shutter-top 0.9s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+}
+.tape-transition.run .tape-shutter.bottom {
+  animation: shutter-bottom 0.9s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+}
+
+@keyframes shutter-top {
+  0%   { transform: translateY(-100%); }
+  45%  { transform: translateY(0); }      /* сомкнулись */
+  55%  { transform: translateY(0); }      /* короткая пауза */
+  100% { transform: translateY(-100%); }  /* разъехались */
+}
+@keyframes shutter-bottom {
+  0%   { transform: translateY(100%); }
+  45%  { transform: translateY(0); }
+  55%  { transform: translateY(0); }
+  100% { transform: translateY(100%); }
+}
+
+/* ══════════════════════════════
+   ПОЯВЛЕНИЕ АРЕНЫ БИТВЫ
+══════════════════════════════ */
+/* Класс вешается на #screen-battle в момент старта,
+   снимается после проигрывания анимации */
+.battle-arena.intro {
+  animation: arena-zoom-in 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+@keyframes arena-zoom-in {
+  from { opacity: 0; transform: scale(0.82); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Карточки выезжают навстречу из-за краёв */
+.battle-arena.intro #card-left {
+  animation: card-in-left 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+.battle-arena.intro #card-right {
+  animation: card-in-right 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+@keyframes card-in-left {
+  from { opacity: 0; transform: translateX(-40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes card-in-right {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ══════════════════════════════
    ЛЕНТА МОНОКУМЫ (декор)
    — чёрно-красные диагональные полосы
 ══════════════════════════════ */
 .monokuma-tape {
   height: 12px;
   width: 100%;
-  background: repeating-linear-gradient(
+  background-image: repeating-linear-gradient(
     -45deg,
     var(--red) 0px,
     var(--red) 10px,
     #0a0a0f 10px,
     #0a0a0f 20px
   );
+  /* Период диагонального паттерна по горизонтали = 20px / sin(45°) ≈ 28.28px.
+     Двигаем фон ровно на один период, чтобы скролл был бесшовным. */
+  background-size: 28.2843px 28.2843px;
+  background-repeat: repeat;
   flex-shrink: 0;
   opacity: 0.85;
+  will-change: background-position;
+}
+
+/* Верхняя лента едет влево */
+.monokuma-tape.top {
+  animation: tape-scroll-left 1.6s linear infinite;
+}
+/* Нижняя лента едет вправо */
+.monokuma-tape.bottom {
+  animation: tape-scroll-right 1.6s linear infinite;
+}
+
+@keyframes tape-scroll-left {
+  from { background-position: 0 0; }
+  to   { background-position: -28.2843px 0; }
+}
+@keyframes tape-scroll-right {
+  from { background-position: 0 0; }
+  to   { background-position: 28.2843px 0; }
 }
 
 /* ══════════════════════════════
@@ -367,6 +487,138 @@ body {
   justify-content: center;
   gap: 0;
   padding: 24px 16px 16px;
+  position: relative; /* контекст для всплывающих цифр +1/-1 */
+}
+
+/* ── Всплывающая цифра очков (+1 / -1) ── */
+.score-popup {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 20;
+  opacity: 0;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+  animation: score-fly 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+.score-popup.win  { color: #00e676; }   /* зелёная +1 */
+.score-popup.lose { color: #ff3b5c; }   /* красная -1 */
+
+/* ── Строка счёта под карточкой (в бою) ── */
+.card-score {
+  display: inline-block;
+  margin-top: 6px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 10px;
+}
+
+/* ── Кнопка-глаз показа счёта (шапка битвы) ── */
+.btn-eye {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.18s, border-color 0.18s, background 0.18s;
+}
+.btn-eye:hover { color: var(--text); border-color: var(--accent); }
+.btn-eye.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* ── Блок-опция и тумблер на стартовом экране ── */
+.option-block {
+  width: 100%;
+  margin-bottom: 28px;
+}
+.option-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.option-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-track {
+  flex-shrink: 0;
+  position: relative;
+  width: 46px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  transition: background 0.2s, border-color 0.2s;
+}
+.toggle-thumb {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: left 0.2s, background 0.2s;
+}
+.option-toggle input:checked + .toggle-track {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  border-color: var(--accent);
+}
+.option-toggle input:checked + .toggle-track .toggle-thumb {
+  left: 25px;
+  background: var(--accent);
+}
+.option-toggle input:focus-visible + .toggle-track {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.toggle-label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.toggle-label small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+@keyframes score-fly {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 20%) scale(0.6);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(-50%, -60%) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -220%) scale(1);
+  }
 }
 
 /* ── Карточка персонажа ── */
@@ -780,6 +1032,243 @@ body {
   text-shadow: 0 1px 3px rgba(0,0,0,0.8);
   pointer-events: none;
   z-index: 1;
+}
+
+/* ══════════════════════════════
+   HONORABLE MENTION («4-й пьедестал»)
+══════════════════════════════ */
+.hm-wrap { width: 100%; }
+
+/* Пустое состояние — приглашение выбрать */
+.hm-empty {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface2) 35%, transparent);
+}
+.hm-empty-icon {
+  font-size: 1.6rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.hm-empty-text { display: flex; flex-direction: column; gap: 3px; }
+.hm-empty-text strong {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+.hm-empty-text span { font-size: 0.82rem; color: var(--muted); line-height: 1.4; }
+
+/* Выбранная любимка */
+.hm-card {
+  position: relative;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 18%, transparent);
+  overflow: hidden;
+}
+.hm-title {
+  display: block;
+  padding: 8px 16px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.hm-body {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+}
+.hm-img-wrap {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface2);
+}
+.hm-img { width: 100%; height: 100%; object-fit: cover; }
+.hm-img.error { display: none; }
+.hm-img-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  color: var(--muted);
+}
+.hm-img:not(.error) + .hm-img-fallback { display: none; }
+.hm-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--text);
+}
+.hm-meta { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+.hm-note { font-size: 0.78rem; color: var(--accent); margin-top: 4px; font-style: italic; }
+.hm-clear {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: color var(--transition), border-color var(--transition);
+}
+.hm-clear:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Кликабельные строки таблицы (#4+) */
+.result-row.selectable { cursor: pointer; }
+.result-row.selectable:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.result-row.is-hm {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.result-row { position: relative; } /* для абсолютного бейджа */
+.hm-badge {
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 999px;
+  padding: 1px 8px;
+  pointer-events: none;
+}
+
+/* ══════════════════════════════
+   ЖУРНАЛ ПОЕДИНКОВ (на экране результатов)
+══════════════════════════════ */
+.score-note {
+  width: 100%;
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--muted);
+  border-left: 2px solid var(--border);
+  background: color-mix(in srgb, var(--surface2) 40%, transparent);
+  border-radius: 0 6px 6px 0;
+}
+.battle-log-wrap {
+  width: 100%;
+  margin-top: 28px;
+}
+.log-details {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.log-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  cursor: pointer;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  list-style: none;
+  user-select: none;
+}
+.log-summary::-webkit-details-marker { display: none; }
+.log-summary:hover { background: var(--surface2); }
+.log-stat {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+.log-body {
+  border-top: 1px solid var(--border);
+  padding: 12px 14px 16px;
+}
+.log-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+.log-row {
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 0.86rem;
+}
+.log-row:nth-child(odd) { background: color-mix(in srgb, var(--surface2) 55%, transparent); }
+.log-n {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  text-align: right;
+}
+.log-pair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.log-name { color: var(--text); }
+.log-name.won  { color: #00e676; font-weight: 600; }
+.log-name.lost { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.log-vs {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.log-result {
+  color: var(--text);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.log-arrow { color: var(--accent); }
+.log-result.tie-tag {
+  color: var(--muted);
+  font-style: italic;
+}
+.log-row.tie .log-name { color: var(--muted); }
+.log-empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 20px;
 }
 
 /* ══════════════════════════════
