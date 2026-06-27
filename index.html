@@ -53,6 +53,15 @@
         </div>
       </div>
 
+      <!-- Опции -->
+      <div class="option-block">
+        <label class="option-toggle">
+          <input type="checkbox" id="toggle-battle-score" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-label">Показывать счёт в бою <small>(W–L и сила в %)</small></span>
+        </label>
+      </div>
+
       <!-- Статистика -->
       <div class="stat-block" id="stat-block">
         <!-- Заполняется из JS -->
@@ -79,6 +88,12 @@
         <div class="progress-bar" id="progress-bar"></div>
       </div>
       <span class="progress-text" id="progress-text">0%</span>
+      <button class="btn-eye" id="btn-toggle-score" aria-pressed="false" title="Показать счёт">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>
+        </svg>
+      </button>
     </header>
 
     <div class="battle-arena" id="battle-arena">
@@ -91,6 +106,7 @@
         <div class="card-info">
           <span class="card-game" id="game-left"></span>
           <h2 class="card-name" id="name-left"></h2>
+          <span class="card-score" id="score-left"></span>
         </div>
         <button class="btn-pick" id="btn-left">Выбрать</button>
       </div>
@@ -109,6 +125,7 @@
         <div class="card-info">
           <span class="card-game" id="game-right"></span>
           <h2 class="card-name" id="name-right"></h2>
+          <span class="card-score" id="score-right"></span>
         </div>
         <button class="btn-pick" id="btn-right">Выбрать</button>
       </div>
@@ -136,8 +153,20 @@
       <!-- Подиум (Топ-3) -->
       <div class="podium-wrap" id="podium"></div>
 
+      <!-- Honorable Mention (личный выбор пользователя) -->
+      <div class="hm-wrap" id="hm-wrap"></div>
+
       <!-- Полная таблица -->
       <div class="results-grid" id="results-grid"></div>
+
+      <!-- Сноска про относительность силы -->
+      <p class="score-note">
+        «Сила в %» — относительная метрика по доле побед и не учитывает силу соперников.
+        Место определяется прямыми сравнениями, поэтому при равном счёте порядок точнее судить по журналу поединков ниже.
+      </p>
+
+      <!-- Журнал поединков (раскрывающийся) -->
+      <div class="battle-log-wrap" id="battle-log"></div>
 
       <!-- Кнопки экспорта -->
       <div class="result-actions">
@@ -155,6 +184,12 @@
     </div>
 
     <div class="monokuma-tape bottom"></div>
+  </div>
+
+  <!-- Оверлей перехода: ленты-шторки смыкаются при старте сортировки -->
+  <div class="tape-transition" id="tape-transition">
+    <div class="tape-shutter top"></div>
+    <div class="tape-shutter bottom"></div>
   </div>
 
   <!-- Данные персонажей — редактируй этот файл чтобы добавить/убрать персонажей -->
