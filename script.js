@@ -33,9 +33,46 @@ const state = {
   totalComparisons: 0,
   doneComparisons: 0,
 
+  // Подсчёт очков (W/L по реальным поединкам)
+  scores: new Map(),       // ключ персонажа -> { w, l }
+  currentPair: null,       // { left, right } — пара в текущем поединке
+  showBattleScore: false,  // показывать ли счёт под карточками в бою (по умолч. скрыт)
+  battleLog: [],           // журнал всех поединков для отладки/просмотра
+
   // Результат
   result: [],
+  honorableMention: null, // индекс выбранной любимки в state.result (или null)
 };
+
+/** Уникальный ключ персонажа для таблицы очков */
+function charKey(char) {
+  return `${char.name}|${char.game}`;
+}
+
+/** Возвращает запись очков персонажа (создаёт при отсутствии) */
+function getScore(char) {
+  const key = charKey(char);
+  if (!state.scores.has(key)) state.scores.set(key, { w: 0, l: 0 });
+  return state.scores.get(key);
+}
+
+/**
+ * Сглаженный винрейт («сила») по методу Лапласа: (W + 1) / (W + L + 2).
+ * При малом числе игр тянется к 50% и не раздувается от 1-2 случайных побед.
+ * Возвращает целый процент 0..100.
+ */
+function strengthPct(char) {
+  const s = getScore(char);
+  const g = s.w + s.l;
+  if (g === 0) return 50; // ещё не играл — нейтрально
+  return Math.round(((s.w + 1) / (g + 2)) * 100);
+}
+
+/** Форматирует счёт персонажа: "3–1 · 70%" */
+function formatScore(char) {
+  const s = getScore(char);
+  return `${s.w}–${s.l} · ${strengthPct(char)}%`;
+}
 
 // ══════════════════════════════════════════════════════
 // 3. SORT ENGINE — Interactive Merge Sort
@@ -90,6 +127,7 @@ function askUser(charA, charB) {
   return new Promise((resolve) => {
     // Сохраняем callback в state, чтобы кнопки могли его вызвать
     state.sortCallback = resolve;
+    state.currentPair = { left: charA, right: charB }; // для начисления очков
     state.doneComparisons++;
     updateBattleScreen(charA, charB);
     updateProgress();
@@ -219,14 +257,60 @@ async function startSorting() {
 
   state.totalComparisons = estimateComparisons(state.characters.length);
   state.doneComparisons  = 0;
+  state.scores = new Map();   // обнуляем счёт перед новым прогоном
+  state.battleLog = [];       // обнуляем журнал поединков
+  state.honorableMention = null; // сбрасываем выбор любимки
 
-  showScreen('battle');
+  // Запускаем переход «смыкание лент»: в момент смыкания показываем арену
+  await runTapeTransition(() => {
+    showScreen('battle');
+    const arena = document.getElementById('battle-arena');
+    arena.classList.add('intro'); // зум-появление арены и карточек
+    // Снимаем intro после проигрывания анимации появления
+    setTimeout(() => arena.classList.remove('intro'), 600);
+  });
 
   // Запускаем алгоритм — он сам будет вызывать askUser() и ждать ответов
   const sorted = await interactiveMergeSort([...state.characters]);
   state.result = sorted;
 
-  showResultScreen();
+  // Когда все выборы сделаны — переход со шторками перед показом результатов
+  await runTapeTransition(() => {
+    showResultScreen();
+  });
+}
+
+/**
+ * Проигрывает переход со шторками: ленты смыкаются к центру, и в момент,
+ * когда экран полностью перекрыт, вызывается onClosed() — там и происходит
+ * смена экрана (под прикрытием шторок). Затем шторки расходятся.
+ *
+ * @param {() => void} onClosed — что сделать в момент смыкания (сменить экран и т.п.)
+ * @returns {Promise<void>} резолвится в момент смыкания (после onClosed)
+ */
+function runTapeTransition(onClosed) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('tape-transition');
+
+    const DURATION  = 900; // должно совпадать с CSS-анимацией shutter-*
+    const CLOSED_AT = 0.45 * DURATION; // момент полного смыкания
+
+    // Перезапускаем анимацию шторок
+    overlay.classList.remove('run');
+    void overlay.offsetWidth; // форсируем reflow для рестарта анимации
+    overlay.classList.add('run');
+
+    // Когда шторки сомкнулись — выполняем смену экрана под их прикрытием
+    setTimeout(() => {
+      if (typeof onClosed === 'function') onClosed();
+      resolve();
+    }, CLOSED_AT);
+
+    // Когда переход полностью завершился — убираем оверлей
+    setTimeout(() => {
+      overlay.classList.remove('run');
+    }, DURATION);
+  });
 }
 
 /** Fisher-Yates shuffle */
@@ -246,6 +330,22 @@ function updateBattleScreen(charA, charB) {
   // Левая карточка
   setCard('left',  charA);
   setCard('right', charB);
+  refreshBattleScores(); // обновляем строку счёта под карточками
+}
+
+/**
+ * Обновляет текст счёта под обеими карточками и его видимость.
+ * Показ зависит от state.showBattleScore (тумблер / кнопка-глаз).
+ */
+function refreshBattleScores() {
+  const pair = state.currentPair;
+  ['left', 'right'].forEach((side) => {
+    const el = document.getElementById(`score-${side}`);
+    if (!el) return;
+    const char = pair ? pair[side] : null;
+    el.textContent = char ? formatScore(char) : '';
+    el.style.display = state.showBattleScore ? '' : 'none';
+  });
 }
 
 function setCard(side, char) {
@@ -294,11 +394,76 @@ function answer(value) {
   if (typeof state.sortCallback === 'function') {
     const cb = state.sortCallback;
     state.sortCallback = null;
-    // Визуальный акцент на победителе
-    if (value === -1) flashCard('left');
-    if (value === 1)  flashCard('right');
+
+    const pair = state.currentPair;
+
+    // Визуальный акцент на победителе + всплывающие очки + начисление W/L
+    if (value === -1) {
+      flashCard('left');
+      showScorePopup('left',  true);   // +1 победителю
+      showScorePopup('right', false);  // -1 проигравшему
+      if (pair) { getScore(pair.left).w++; getScore(pair.right).l++; }
+    }
+    if (value === 1) {
+      flashCard('right');
+      showScorePopup('right', true);   // +1 победителю
+      showScorePopup('left',  false);  // -1 проигравшему
+      if (pair) { getScore(pair.right).w++; getScore(pair.left).l++; }
+    }
+    // При ничьей (value === 0) очки не начисляем
+
+    // Запись в журнал поединков (для просмотра «под капотом»)
+    if (pair) {
+      let outcome;
+      if (value === -1) outcome = 'left';
+      else if (value === 1) outcome = 'right';
+      else outcome = 'tie';
+      state.battleLog.push({
+        n: state.battleLog.length + 1,
+        left: pair.left.name,
+        right: pair.right.name,
+        outcome, // 'left' | 'right' | 'tie'
+        winner: outcome === 'tie' ? null : pair[outcome].name,
+        loser:  outcome === 'tie' ? null : pair[outcome === 'left' ? 'right' : 'left'].name,
+        leftScore:  { ...getScore(pair.left)  },  // снимок счёта после поединка
+        rightScore: { ...getScore(pair.right) },
+      });
+    }
+
+    // Обновляем строку счёта под карточками (если показ включён)
+    refreshBattleScores();
+
     setTimeout(() => cb(value), value !== 0 ? 140 : 0);
   }
+}
+
+/**
+ * Показывает всплывающую цифру очков над карточкой.
+ * @param {'left'|'right'} side — над какой карточкой
+ * @param {boolean} isWin — true: зелёная +1, false: красная -1
+ */
+function showScorePopup(side, isWin) {
+  const arena = document.getElementById('battle-arena');
+  const card  = document.getElementById(`card-${side}`);
+  if (!arena || !card) return;
+
+  const arenaRect = arena.getBoundingClientRect();
+  const cardRect  = card.getBoundingClientRect();
+
+  // Координаты: по центру карточки по горизонтали, у верхнего края по вертикали
+  const x = cardRect.left - arenaRect.left + cardRect.width / 2;
+  const y = cardRect.top  - arenaRect.top;
+
+  const popup = document.createElement('div');
+  popup.className = `score-popup ${isWin ? 'win' : 'lose'}`;
+  popup.textContent = isWin ? '+1' : '−1'; // минус — типографский (U+2212)
+  popup.style.left = x + 'px';
+  popup.style.top  = y + 'px';
+
+  arena.appendChild(popup);
+
+  // Убираем элемент после завершения анимации
+  popup.addEventListener('animationend', () => popup.remove());
 }
 
 /** Подсвечивает победившую карточку */
@@ -319,7 +484,9 @@ function flashCard(side) {
 function showResultScreen() {
   showScreen('result');
   renderPodium();
+  renderHonorableMention();
   renderResultsGrid();
+  renderBattleLog();
 }
 
 /** Рендерит подиум Топ-3 */
@@ -331,14 +498,60 @@ function renderPodium() {
   podium.innerHTML = top3.map((char, i) => `
     <div class="podium-card">
       <div class="podium-img-wrap">
-        <img class="podium-img" src="${char.img || ''}" alt="${char.name}"
+        <img class="podium-img" src="${char.img || ''}" alt="${esc(char.name)}"
              onerror="this.classList.add('error')" />
         <div class="podium-img-fallback">${initials(char.name)}</div>
       </div>
       <div class="podium-rank">${medals[i]} #${i + 1}</div>
-      <div class="podium-name">${char.name}</div>
+      <div class="podium-name">${esc(char.name)}</div>
     </div>
   `).join('');
+}
+
+/**
+ * Рендерит «4-й пьедестал» — Honorable Mention.
+ * Если ничего не выбрано — показывает приглашение выбрать из таблицы.
+ */
+function renderHonorableMention() {
+  const wrap = document.getElementById('hm-wrap');
+  if (!wrap) return;
+
+  const idx = state.honorableMention;
+  const hasPick = idx !== null && state.result[idx];
+
+  if (!hasPick) {
+    wrap.innerHTML = `
+      <div class="hm-empty">
+        <span class="hm-empty-icon">★</span>
+        <div class="hm-empty-text">
+          <strong>Honorable Mention</strong>
+          <span>Выбери любимку из списка ниже (вне Топ-3), кликнув по строке — она встанет сюда</span>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const char = state.result[idx];
+  wrap.innerHTML = `
+    <div class="hm-card">
+      <span class="hm-title">★ Honorable Mention</span>
+      <div class="hm-body">
+        <div class="hm-img-wrap">
+          <img class="hm-img" src="${char.img || ''}" alt="${esc(char.name)}"
+               onerror="this.classList.add('error')" />
+          <div class="hm-img-fallback">${initials(char.name)}</div>
+        </div>
+        <div class="hm-info">
+          <div class="hm-name">${esc(char.name)}</div>
+          <div class="hm-meta">#${idx + 1} в общем рейтинге · ${esc(char.game)} · ${formatScore(char)}</div>
+          <div class="hm-note">Не попала на подиум, но это мой личный выбор</div>
+        </div>
+        <button class="hm-clear" id="hm-clear" title="Убрать выбор">✕</button>
+      </div>
+    </div>`;
+
+  const clr = document.getElementById('hm-clear');
+  if (clr) clr.addEventListener('click', () => toggleHonorableMention(idx));
 }
 
 /** Рендерит полный список результатов */
@@ -346,26 +559,140 @@ function renderResultsGrid() {
   const grid = document.getElementById('results-grid');
   grid.innerHTML = state.result.map((char, i) => {
     const rankClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+    const selectable = i >= 3; // Топ-3 нельзя выбрать как Honorable Mention
+    const isHM = state.honorableMention === i;
+    const cls = [
+      'result-row',
+      selectable ? 'selectable' : '',
+      isHM ? 'is-hm' : '',
+    ].filter(Boolean).join(' ');
     return `
-      <div class="result-row">
+      <div class="${cls}" ${selectable ? `data-index="${i}"` : ''}>
         <div class="result-rank ${rankClass}">#${i + 1}</div>
         <div class="result-thumb">
-          <img src="${char.img || ''}" alt="${char.name}" onerror="this.classList.add('error')" />
+          <img src="${char.img || ''}" alt="${esc(char.name)}" onerror="this.classList.add('error')" />
           <div class="result-thumb-fallback">${initials(char.name)}</div>
         </div>
         <div class="result-info">
-          <div class="result-name">${char.name}</div>
-          <div class="result-game">${char.game}</div>
+          <div class="result-name">${esc(char.name)}</div>
+          <div class="result-game">${esc(char.game)}</div>
         </div>
-        <div class="result-score">${char.game}</div>
+        ${isHM ? '<span class="hm-badge">★ Любимка</span>' : ''}
+        <div class="result-score" title="Победы–Поражения · Сила">${formatScore(char)}</div>
       </div>
     `;
   }).join('');
+
+  // Клик по строке #4+ выбирает/снимает Honorable Mention
+  grid.querySelectorAll('.result-row.selectable').forEach(row => {
+    row.addEventListener('click', () => {
+      const idx = Number(row.dataset.index);
+      toggleHonorableMention(idx);
+    });
+  });
+}
+
+/** Выбирает/снимает любимку по индексу в state.result */
+function toggleHonorableMention(idx) {
+  state.honorableMention = (state.honorableMention === idx) ? null : idx;
+  renderResultsGrid(); // обновить подсветку/бейдж
+  renderHonorableMention(); // обновить «4-й пьедестал»
 }
 
 /** Инициалы персонажа для заглушки */
 function initials(name) {
   return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
+
+/** Экранирование для безопасной вставки имён в HTML */
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, m => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]
+  ));
+}
+
+/**
+ * Рендерит журнал поединков на экране результатов.
+ * Хронологический список: кто против кого, кого выбрали, и счёт после.
+ */
+function renderBattleLog() {
+  const wrap = document.getElementById('battle-log');
+  if (!wrap) return;
+
+  const log = state.battleLog;
+  const total = log.length;
+  const ties  = log.filter(e => e.outcome === 'tie').length;
+  const decisive = total - ties;
+
+  const rows = log.map(e => {
+    if (e.outcome === 'tie') {
+      return `
+        <div class="log-row tie">
+          <span class="log-n">${e.n}</span>
+          <span class="log-pair">
+            <span class="log-name">${esc(e.left)}</span>
+            <span class="log-vs">≈</span>
+            <span class="log-name">${esc(e.right)}</span>
+          </span>
+          <span class="log-result tie-tag">ничья</span>
+        </div>`;
+    }
+    const leftWon = e.outcome === 'left';
+    return `
+      <div class="log-row">
+        <span class="log-n">${e.n}</span>
+        <span class="log-pair">
+          <span class="log-name ${leftWon ? 'won' : 'lost'}">${esc(e.left)}</span>
+          <span class="log-vs">vs</span>
+          <span class="log-name ${leftWon ? 'lost' : 'won'}">${esc(e.right)}</span>
+        </span>
+        <span class="log-result"><span class="log-arrow">▸</span> ${esc(e.winner)}</span>
+      </div>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <details class="log-details">
+      <summary class="log-summary">
+        <span>📜 Журнал поединков</span>
+        <span class="log-stat">${total} сравнений · ${decisive} с выбором · ${ties} ничьих</span>
+      </summary>
+      <div class="log-body">
+        <div class="log-toolbar">
+          <button class="btn-ghost small" id="btn-download-log">↓ Скачать .txt</button>
+        </div>
+        <div class="log-list">${rows || '<div class="log-empty">Поединков не было</div>'}</div>
+      </div>
+    </details>
+  `;
+
+  const dl = document.getElementById('btn-download-log');
+  if (dl) dl.addEventListener('click', downloadBattleLog);
+}
+
+/** Скачивает журнал поединков как текстовый файл */
+function downloadBattleLog() {
+  const lines = ['# Журнал поединков — Waifu Battle', ''];
+  state.battleLog.forEach(e => {
+    if (e.outcome === 'tie') {
+      lines.push(`${e.n}. ${e.left} ≈ ${e.right} — ничья`);
+    } else {
+      lines.push(`${e.n}. ${e.left} vs ${e.right} → ${e.winner}`);
+    }
+  });
+  lines.push('', '# Итоговый рейтинг');
+  state.result.forEach((c, i) => {
+    lines.push(`#${i + 1} ${c.name} — ${formatScore(c)}`);
+  });
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'waifu-battle-log.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ── Кнопка "Скопировать результат" ──
@@ -374,7 +701,14 @@ document.getElementById('btn-copy').addEventListener('click', () => {
     .map((char, i) => `#${i + 1} ${char.name} (${char.game})`)
     .join('\n');
 
-  const fullText = `Мой Spike Chunsoft Waifu Rating:\n\n${text}`;
+  let fullText = `Мой Spike Chunsoft Waifu Rating:\n\n${text}`;
+
+  // Добавляем Honorable Mention, если выбрана
+  const idx = state.honorableMention;
+  if (idx !== null && state.result[idx]) {
+    const hm = state.result[idx];
+    fullText += `\n\n★ Honorable Mention: ${hm.name} (${hm.game}) — #${idx + 1}`;
+  }
 
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(fullText).then(showCopyToast);
@@ -400,15 +734,65 @@ function showCopyToast() {
 
 // ── Кнопка "Пройти заново" ──
 document.getElementById('btn-restart').addEventListener('click', () => {
-  state.result = [];
-  state.sortCallback = null;
-  showScreen('start');
-  renderStartScreen();
+  // Переход со шторками: в момент смыкания возвращаемся на стартовый экран
+  runTapeTransition(() => {
+    state.result = [];
+    state.sortCallback = null;
+    state.honorableMention = null;
+    showScreen('start');
+    renderStartScreen();
+  });
 });
 
 // ══════════════════════════════════════════════════════
-// ПИКЕР АКЦЕНТНОГО ЦВЕТА
+// ПОКАЗ СЧЁТА В БОЮ (тумблер на старте + кнопка-глаз в битве)
 // ══════════════════════════════════════════════════════
+
+/**
+ * Устанавливает режим показа счёта под карточками и синхронизирует
+ * оба контрола (тумблер на старте и кнопку-глаз на экране битвы).
+ */
+function setShowBattleScore(on) {
+  state.showBattleScore = !!on;
+
+  // Синхронизируем тумблер на стартовом экране
+  const toggle = document.getElementById('toggle-battle-score');
+  if (toggle) toggle.checked = state.showBattleScore;
+
+  // Синхронизируем кнопку-глаз на экране битвы
+  const eye = document.getElementById('btn-toggle-score');
+  if (eye) {
+    eye.classList.toggle('active', state.showBattleScore);
+    eye.setAttribute('aria-pressed', String(state.showBattleScore));
+    eye.title = state.showBattleScore ? 'Скрыть счёт' : 'Показать счёт';
+  }
+
+  // Перерисовываем строку счёта под карточками
+  refreshBattleScores();
+
+  // Запоминаем выбор
+  try { localStorage.setItem('sc-show-score', state.showBattleScore ? '1' : '0'); } catch (e) {}
+}
+
+// Восстанавливаем сохранённый выбор
+try {
+  state.showBattleScore = localStorage.getItem('sc-show-score') === '1';
+} catch (e) {}
+
+// Тумблер на стартовом экране
+const scoreToggle = document.getElementById('toggle-battle-score');
+if (scoreToggle) {
+  scoreToggle.checked = state.showBattleScore;
+  scoreToggle.addEventListener('change', () => setShowBattleScore(scoreToggle.checked));
+}
+
+// Кнопка-глаз на экране битвы
+const scoreEye = document.getElementById('btn-toggle-score');
+if (scoreEye) {
+  scoreEye.addEventListener('click', () => setShowBattleScore(!state.showBattleScore));
+}
+
+
 
 /**
  * Применяет акцентный цвет — пишет его в CSS-переменную --accent на :root.
