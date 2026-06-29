@@ -25,13 +25,33 @@
         <p class="logo-sub">Мой проект оценивания персонажей, среди игр серии danganronpa AI:SF и MDA: Rain Code</p>
       </div>
 
-      <!-- Фильтры по играм -->
-      <div class="filter-block">
-        <h2 class="filter-title">Выбор игры</h2>
-        <div class="filter-grid" id="filter-grid">
-          <!-- Заполняется из JS -->
+      <!-- Режим (слева, узкий) + Выбор игры (справа) -->
+      <div class="start-row">
+        <!-- Выбор режима -->
+        <div class="mode-block">
+          <h2 class="filter-title">Режим</h2>
+          <div class="mode-switch" id="mode-switch">
+            <button class="mode-option active" data-mode="sort">
+              <span class="mode-icon">⇅</span>
+              <span class="mode-name">Сортировка</span>
+              <span class="mode-desc">Merge Sort — полный рейтинг</span>
+            </button>
+            <button class="mode-option" data-mode="tournament">
+              <span class="mode-icon">🏆</span>
+              <span class="mode-name">Турнир</span>
+              <span class="mode-desc">Single Elimination</span>
+            </button>
+          </div>
         </div>
-        <button class="btn-secondary" id="btn-toggle-all">Снять все</button>
+
+        <!-- Фильтры по играм -->
+        <div class="filter-block">
+          <h2 class="filter-title">Выбор игры</h2>
+          <div class="filter-grid" id="filter-grid">
+            <!-- Заполняется из JS -->
+          </div>
+          <button class="btn-secondary" id="btn-toggle-all">Снять все</button>
+        </div>
       </div>
 
       <!-- Выбор акцентного цвета -->
@@ -60,6 +80,14 @@
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
           <span class="toggle-label">Показывать счёт в бою <small>(W–L и сила в %)</small></span>
         </label>
+      </div>
+
+      <!-- Сброс личного Эло-прогресса -->
+      <div class="reset-block">
+        <button class="btn-ghost small" id="btn-reset-elo" type="button">
+          ↺ Сбросить личный прогресс Эло
+        </button>
+        <p class="reset-hint">Вернёт рейтинги к каноничным значениям из ratings.json. История сравнений на этом устройстве сотрётся.</p>
       </div>
 
       <!-- Статистика -->
@@ -194,6 +222,11 @@
 
   <!-- Данные персонажей — редактируй этот файл чтобы добавить/убрать персонажей -->
   <script src="characters.js"></script>
+  <script src="elo.js"></script>
+  <script src="elo-personal.js"></script>
+  <script src="tournament.js"></script>
+  <script src="bracket-svg.js"></script>
+  <script src="bracket-viewer.js"></script>
   <!-- Логика приложения — алгоритм, UI, события -->
   <script src="script.js"></script>
 </body>

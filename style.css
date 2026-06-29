@@ -221,7 +221,7 @@ body {
   align-items: center;
   gap: 40px;
   padding: 48px 24px 48px;
-  max-width: 760px;
+  max-width: 920px;
   margin: 0 auto;
   width: 100%;
 }
@@ -557,6 +557,26 @@ body {
   gap: 12px;
   cursor: pointer;
   user-select: none;
+}
+
+/* ── Сброс личного Эло-прогресса ── */
+.reset-block {
+  width: 100%;
+  margin-bottom: 28px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.reset-block .btn-ghost {
+  padding: 8px 0;
+  color: rgba(255,255,255,0.55);
+}
+.reset-block .btn-ghost:hover { color: var(--accent, #ff2d78); }
+.reset-hint {
+  font-size: 0.74rem;
+  opacity: 0.5;
+  margin: 2px 0 0;
+  line-height: 1.4;
+  max-width: 480px;
 }
 .option-toggle input {
   position: absolute;
@@ -1327,4 +1347,341 @@ body {
 /* Уменьшаем анимации если пользователь предпочитает меньше движений */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+/* Эло крупным числом в таблице результатов */
+.score-elo {
+  font-weight: 700;
+  font-size: 1.15rem;
+  line-height: 1.1;
+  color: var(--accent, #ff2d78);
+  font-variant-numeric: tabular-nums; /* цифры ровными столбцами */
+}
+.score-elo-unit {
+  font-weight: 500;
+  font-size: 0.7em;
+  opacity: 0.7;
+}
+.score-sub {
+  font-size: 0.78rem;
+  opacity: 0.6;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+.score-main {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+/* ── Строка: Режим (слева) + Выбор игры (справа) ── */
+.start-row {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;   /* обе колонки равной высоты */
+  width: 100%;
+}
+
+/* Режим — узкая колонка слева, НЕ растягивается шире нужного */
+.start-row .mode-block {
+  flex: 0 0 200px;        /* фиксированная узкая ширина */
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 0;
+}
+
+/* Выбор игры занимает весь остаток справа */
+.start-row .filter-block {
+  flex: 1 1 auto;
+  margin-bottom: 0;
+}
+
+/* Режимы — вертикальный список (растёт вниз при добавлении новых) */
+.mode-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mode-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 14px 10px;
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, transform 0.1s;
+  text-align: center;
+}
+.mode-option:hover {
+  border-color: rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.06);
+}
+.mode-option:active { transform: scale(0.98); }
+.mode-option.active {
+  border-color: var(--accent, #ff2d78);
+  background: color-mix(in srgb, var(--accent, #ff2d78) 12%, transparent);
+}
+
+.mode-icon { font-size: 1.5rem; line-height: 1; }
+.mode-name { font-weight: 700; font-size: 0.95rem; }
+.mode-desc { font-size: 0.68rem; opacity: 0.6; line-height: 1.2; }
+
+/* На узком экране — режим над играми, режимы в ряд */
+@media (max-width: 640px) {
+  .start-row { flex-direction: column; }
+  .start-row .mode-block { flex: none; }
+  .mode-switch { flex-direction: row; }
+  .mode-option { flex: 1; }
+}
+ 
+.mode-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 12px;
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, transform 0.1s;
+  text-align: center;
+}
+.mode-option:hover {
+  border-color: rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.06);
+}
+.mode-option:active { transform: scale(0.98); }
+ 
+.mode-option.active {
+  border-color: var(--accent, #ff2d78);
+  background: color-mix(in srgb, var(--accent, #ff2d78) 12%, transparent);
+}
+ 
+.mode-icon { font-size: 1.6rem; line-height: 1; }
+.mode-name { font-weight: 700; font-size: 1rem; }
+.mode-desc { font-size: 0.72rem; opacity: 0.6; line-height: 1.2; }
+/* ── Уведомление на границе раунда турнира ── */
+.round-boundary-note {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 1000;
+}
+.round-boundary-note.show { opacity: 1; }
+.rbn-inner {
+  text-align: center;
+  padding: 28px 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: min(96vw, 1600px);
+  height: min(94vh, 980px);
+  display: flex;
+  flex-direction: column;
+}
+.rbn-title {
+  flex-shrink: 0;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.rbn-next { flex-shrink: 0; opacity: 0.7; margin: 8px 0 20px; }
+/* ── Дельты Эло в журнале ── */
+.log-elo {
+  display: inline-flex;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  margin-left: 8px;
+}
+.log-elo .elo-up   { color: var(--accent, #ff2d78); font-weight: 600; }
+.log-elo .elo-down { color: rgba(255,255,255,0.4); }
+.log-round {
+  font-size: 0.7rem;
+  opacity: 0.5;
+  margin: 0 8px;
+  white-space: nowrap;
+}
+ 
+/* ── Дельта Эло в таблице результатов ── */
+.score-delta {
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-left: 6px;
+  vertical-align: super;
+  font-variant-numeric: tabular-nums;
+}
+.score-delta.delta-up   { color: var(--accent, #ff2d78); }
+.score-delta.delta-down { color: rgba(255,255,255,0.45); }
+/* ── SVG-сетка турнира ── */
+.bracket-svg { max-width: 100%; height: auto; display: block; }
+ 
+/* Слоты бойцов */
+.bracket-svg .br-box {
+  fill: rgba(255,255,255,0.04);
+  stroke: rgba(255,255,255,0.12);
+  stroke-width: 1.5;
+}
+.bracket-svg .br-win .br-box {
+  fill: color-mix(in srgb, var(--accent, #ff2d78) 18%, transparent);
+  stroke: var(--accent, #ff2d78);
+}
+.bracket-svg .br-lose .br-box { opacity: 0.4; }
+.bracket-svg .br-empty .br-box { stroke-dasharray: 4 4; opacity: 0.5; }
+ 
+/* Текст в слотах */
+.bracket-svg .br-name { fill: #fff; font-size: 22px; font-family: 'Inter', sans-serif; }
+.bracket-svg .br-lose .br-name { fill: rgba(255,255,255,0.6); }
+.bracket-svg .br-seed { fill: rgba(255,255,255,0.4); font-size: 18px; font-weight: 600; }
+.bracket-svg .br-elo  { fill: var(--accent, #ff2d78); font-size: 18px; font-weight: 600; }
+.bracket-svg .br-win .br-name { font-weight: 700; }
+ 
+/* Заголовки раундов и подписи */
+.bracket-svg .br-header {
+  fill: rgba(255,255,255,0.55);
+  font-size: 20px;
+  font-weight: 600;
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.bracket-svg .br-label {
+  fill: rgba(255,255,255,0.55);
+  font-size: 18px;
+  font-family: 'Rajdhani', sans-serif;
+}
+ 
+/* Соединительные линии */
+.bracket-svg .br-line {
+  stroke: rgba(255,255,255,0.22);
+  stroke-width: 2;
+}
+ 
+/* Сетка в оверлее границы раунда */
+.rbn-bracket {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 16px 0;
+}
+.rbn-inner .rbn-btn { flex-shrink: 0; }
+
+/* Сетка на экране результатов */
+.result-bracket { margin: 24px 0; }
+.result-bracket-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+.result-bracket-scroll {
+  width: 100%;
+  height: 60vh;
+  min-height: 360px;
+}
+
+/* === Интерактивный viewport сетки (зум/пан, как в Challonge) === */
+.bracket-viewer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.bv-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  outline: none;
+}
+.bv-viewport.bv-grabbing { cursor: grabbing; }
+.bv-viewport:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent, #ff2d78);
+}
+
+.bv-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.bv-stage.bv-animate { transition: transform 0.2s ease-out; }
+
+.bv-stage .bracket-svg {
+  display: block;
+  max-width: none;
+  height: auto;
+}
+
+.bv-controls {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(20,20,24,0.75);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  backdrop-filter: blur(6px);
+}
+.bv-btn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  color: rgba(255,255,255,0.85);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.bv-btn:hover {
+  background: color-mix(in srgb, var(--accent, #ff2d78) 22%, transparent);
+  color: #fff;
+}
+.bv-btn:active { transform: scale(0.92); }
+
+.bv-hint {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  font-size: 0.68rem;
+  color: rgba(255,255,255,0.4);
+  background: rgba(20,20,24,0.6);
+  padding: 3px 8px;
+  border-radius: 6px;
+  pointer-events: none;
+  letter-spacing: 0.02em;
+}
+@media (hover: none) {
+  .bv-hint { display: none; }
 }

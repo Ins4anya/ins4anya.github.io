@@ -24,6 +24,8 @@
 // ══════════════════════════════════════════════════════
 const state = {
   activeGames: new Set(GAMES.map(g => g.id)), // все включены по умолчанию
+  mode: 'sort',   // 'sort' | 'tournament' — выбранный режим
+  tournament: null, //активный объект Tournament
   characters: [],     // отфильтрованный список
 
   // Merge sort engine
@@ -72,6 +74,55 @@ function strengthPct(char) {
 function formatScore(char) {
   const s = getScore(char);
   return `${s.w}–${s.l} · ${strengthPct(char)}%`;
+}
+
+/**
+ * Безопасно достаёт итоговый Эло персонажа (канон + личная дельта).
+ * Возвращает null, если персональный слой ещё не готов или нет id —
+ * тогда вызывающий код просто не покажет Эло (без ошибок).
+ */
+function eloOf(char) {
+  if (char && char.id && window.EloPersonal &&
+      typeof EloPersonal.getElo === 'function') {
+    return EloPersonal.getElo(char.id);
+  }
+  return null;
+}
+ 
+/**
+ * Строка счёта для БОЯ: «3–1 · 70% · 1639 Эло».
+ * Если Эло недоступен — показывает только «3–1 · 70%».
+ */
+function formatScoreWithElo(char) {
+  const base = formatScore(char);
+  const elo = eloOf(char);
+  return elo != null ? `${base} · ${elo} Эло` : base;
+}
+ 
+/**
+ * Двухуровневый HTML для РЕЗУЛЬТАТОВ: Эло крупным числом, W-L подписью.
+ * Если Эло недоступен — откатывается к обычному formatScore.
+ */
+function formatResultScore(char) {
+  const elo = eloOf(char);
+  const sub = formatScore(char); // «3–1 · 70%»
+  if (elo == null) {
+    return `<div class="score-main">${sub}</div>`;
+  }
+  // Накопленная личная дельта (из персонального слоя)
+  let deltaBadge = '';
+  if (char.id && window.EloPersonal) {
+    const d = EloPersonal.getDelta(char.id);
+    if (d !== 0) {
+      const sign = d > 0 ? '+' : '';
+      const cls  = d > 0 ? 'delta-up' : 'delta-down';
+      deltaBadge = `<span class="score-delta ${cls}">${sign}${d}</span>`;
+    }
+  }
+  return `
+    <div class="score-elo">${elo}<span class="score-elo-unit"> Эло</span>${deltaBadge}</div>
+    <div class="score-sub">${sub}</div>
+  `;
 }
 
 // ══════════════════════════════════════════════════════
@@ -242,8 +293,67 @@ document.getElementById('btn-toggle-all').addEventListener('click', () => {
   renderStats();
 });
 
+/** Кнопка "Сбросить личный прогресс Эло" — возврат к каноничным значениям из ratings.json */
+const btnResetElo = document.getElementById('btn-reset-elo');
+if (btnResetElo) {
+  btnResetElo.addEventListener('click', () => {
+    const ok = confirm(
+      'Сбросить личный прогресс Эло?\n\n' +
+      'Все рейтинги вернутся к каноничным значениям из ratings.json. ' +
+      'Личная история боёв на этом устройстве будет удалена. Это необратимо.'
+    );
+    if (!ok) return;
+    EloPersonal.reset();
+    location.reload();
+  });
+}
+
+
+// ── Переключатель режимов (Сортировка / Турнир) ──
+(function initModeSwitch() {
+  const sw = document.getElementById('mode-switch');
+  if (!sw) return;
+ 
+  // восстановить сохранённый режим
+  try {
+    const saved = localStorage.getItem('sc-mode');
+    if (saved === 'sort' || saved === 'tournament') state.mode = saved;
+  } catch (e) {}
+ 
+  function render() {
+    sw.querySelectorAll('.mode-option').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === state.mode);
+    });
+    // подпись кнопки старта подстраивается под режим
+    const startBtn = document.getElementById('btn-start');
+    if (startBtn) {
+      const label = startBtn.querySelector('span');
+      if (label) {
+        label.textContent = state.mode === 'tournament'
+          ? 'Начать турнир' : 'Начать сортировку';
+      }
+    }
+  }
+ 
+  sw.querySelectorAll('.mode-option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.mode = btn.dataset.mode;
+      try { localStorage.setItem('sc-mode', state.mode); } catch (e) {}
+      render();
+    });
+  });
+ 
+  render();
+})();
+
 /** Кнопка "Начать" */
-document.getElementById('btn-start').addEventListener('click', startSorting);
+      document.getElementById('btn-start').addEventListener('click', () => {
+        if (state.mode === 'tournament') {
+          startTournament();   // ← появится в шаге 4b
+        } else {
+          startSorting();
+        }
+      });
 
 async function startSorting() {
   // Собираем отфильтрованный список и перемешиваем (Fisher-Yates)
@@ -260,6 +370,7 @@ async function startSorting() {
   state.scores = new Map();   // обнуляем счёт перед новым прогоном
   state.battleLog = [];       // обнуляем журнал поединков
   state.honorableMention = null; // сбрасываем выбор любимки
+  state.lastBracketSVG = null;
 
   // Запускаем переход «смыкание лент»: в момент смыкания показываем арену
   await runTapeTransition(() => {
@@ -343,7 +454,7 @@ function refreshBattleScores() {
     const el = document.getElementById(`score-${side}`);
     if (!el) return;
     const char = pair ? pair[side] : null;
-    el.textContent = char ? formatScore(char) : '';
+    el.textContent = char ? formatScoreWithElo(char) : '';
     el.style.display = state.showBattleScore ? '' : 'none';
   });
 }
@@ -420,6 +531,8 @@ function answer(value) {
       else outcome = 'tie';
       state.battleLog.push({
         n: state.battleLog.length + 1,
+        leftId:  pair.left.id,
+        rightId: pair.right.id, 
         left: pair.left.name,
         right: pair.right.name,
         outcome, // 'left' | 'right' | 'tie'
@@ -543,7 +656,7 @@ function renderHonorableMention() {
         </div>
         <div class="hm-info">
           <div class="hm-name">${esc(char.name)}</div>
-          <div class="hm-meta">#${idx + 1} в общем рейтинге · ${esc(char.game)} · ${formatScore(char)}</div>
+          <div class="hm-meta">#${idx + 1} в общем рейтинге · ${esc(char.game)} · ${formatScoreWithElo(char)}</div>
           <div class="hm-note">Не попала на подиум, но это мой личный выбор</div>
         </div>
         <button class="hm-clear" id="hm-clear" title="Убрать выбор">✕</button>
@@ -578,7 +691,7 @@ function renderResultsGrid() {
           <div class="result-game">${esc(char.game)}</div>
         </div>
         ${isHM ? '<span class="hm-badge">★ Любимка</span>' : ''}
-        <div class="result-score" title="Победы–Поражения · Сила">${formatScore(char)}</div>
+        <div class="result-score" title="Эло · Победы–Поражения · Сила">${formatResultScore(char)}</div>
       </div>
     `;
   }).join('');
@@ -619,6 +732,16 @@ function renderBattleLog() {
   const wrap = document.getElementById('battle-log');
   if (!wrap) return;
 
+    // Если только что был турнир — показываем сетку перед журналом
+  let bracketBlock = '';
+  if (state.lastBracketSVG) {
+    bracketBlock = `
+      <div class="result-bracket">
+        <h3 class="result-bracket-title">Турнирная сетка</h3>
+        <div class="result-bracket-scroll" id="result-bracket-mount"></div>
+      </div>`;
+  }
+
   const log = state.battleLog;
   const total = log.length;
   const ties  = log.filter(e => e.outcome === 'tie').length;
@@ -638,6 +761,19 @@ function renderBattleLog() {
         </div>`;
     }
     const leftWon = e.outcome === 'left';
+    // Бейдж дельты Эло (только если запись её содержит — т.е. турнир)
+    let eloBadge = '';
+    if (e.eloWinDelta != null) {
+      const w = e.eloWinDelta;
+      const l = e.eloLoseDelta;
+      const fmt = (v) => (v > 0 ? '+' : '') + v;
+      eloBadge = `
+        <span class="log-elo">
+          <span class="elo-up">${fmt(w)}</span>
+          <span class="elo-down">${fmt(l)}</span>
+        </span>`;
+    }
+    const roundTag = e.round ? `<span class="log-round">${esc(e.round)}</span>` : '';
     return `
       <div class="log-row">
         <span class="log-n">${e.n}</span>
@@ -646,11 +782,13 @@ function renderBattleLog() {
           <span class="log-vs">vs</span>
           <span class="log-name ${leftWon ? 'lost' : 'won'}">${esc(e.right)}</span>
         </span>
+        ${roundTag}
         <span class="log-result"><span class="log-arrow">▸</span> ${esc(e.winner)}</span>
+        ${eloBadge}
       </div>`;
   }).join('');
 
-  wrap.innerHTML = `
+  wrap.innerHTML = bracketBlock + `
     <details class="log-details">
       <summary class="log-summary">
         <span>📜 Журнал поединков</span>
@@ -667,6 +805,12 @@ function renderBattleLog() {
 
   const dl = document.getElementById('btn-download-log');
   if (dl) dl.addEventListener('click', downloadBattleLog);
+
+  // Сетку монтируем отдельно — нужны реальные размеры контейнера в DOM
+  const bracketMount = document.getElementById('result-bracket-mount');
+  if (bracketMount && state.lastBracketSVG && window.BracketViewer) {
+    BracketViewer.mount(bracketMount, state.lastBracketSVG);
+  }
 }
 
 /** Скачивает журнал поединков как текстовый файл */
@@ -839,3 +983,248 @@ colorCustom.addEventListener('input', () => {
 // ИНИЦИАЛИЗАЦИЯ
 // ══════════════════════════════════════════════════════
 renderStartScreen();
+
+// Загрузка канона Эло и подъём персонального слоя
+fetch('ratings.json')
+  .then(r => r.json())
+  .then(data => EloPersonal.init(data.baseElo))
+  .catch(e => {
+    console.warn('Канон не загрузился, работаю на дефолтных 1500:', e);
+    EloPersonal.init({});
+  });
+
+// ══════════════════════════════════════════════════════
+//  ТУРНИР (Single Elimination)
+// ══════════════════════════════════════════════════════
+ 
+async function startTournament() {
+  // Список участников из выбранных игр, отсортированный по Эло (сид 1 = топ)
+  const pool = CHARACTERS
+    .filter(c => state.activeGames.has(c.gameId))
+    .slice();
+ 
+  if (pool.length < 2) {
+    alert('Выберите хотя бы 2 персонажа (минимум одну игру с несколькими персонажами).');
+    return;
+  }
+ 
+  // Сортировка по итоговому Эло (канон + личная дельта)
+  pool.sort((a, b) => eloOf(b) - eloOf(a));
+ 
+  // Создаём турнир
+  let T;
+  try {
+    T = Tournament.create(pool);
+  } catch (e) {
+    alert('Не удалось создать турнир: ' + e.message);
+    return;
+  }
+  state.tournament = T;
+  state.honorableMention = null;
+  state.battleLog = [];   // ← обнуляем журнал перед новым турниром
+ 
+  // Прячем кнопки ничьи/пропуска — в турнире их нет
+  setTournamentButtons(true);
+ 
+  // Переход на боевой экран (та же анимация лент, что у сортировки)
+  await runTapeTransition(() => {
+    showScreen('battle');
+    const arena = document.getElementById('battle-arena');
+    arena.classList.add('intro');
+    setTimeout(() => arena.classList.remove('intro'), 600);
+  });
+ 
+  // Показываем первый матч
+  tournamentShowMatch();
+}
+ 
+/**
+ * Показывает текущий матч турнира на боевых карточках.
+ * Ставит state.sortCallback, чтобы answer() мог принять выбор —
+ * тот же механизм, что у сортировки.
+ */
+function tournamentShowMatch() {
+  const T = state.tournament;
+  if (!T) return;
+ 
+  const m = T.currentMatch();
+  if (m == null) {
+    // турнир окончен
+    finishTournament();
+    return;
+  }
+ 
+  // charA = m.a (левая карточка), charB = m.b (правая)
+  state.currentPair = { left: m.a, right: m.b };
+ 
+  // Заголовок боя показывает раунд: «ПОЛУФИНАЛ», «ФИНАЛ» и т.д.
+  const label = document.querySelector('.battle-label');
+  if (label) label.textContent = m.roundName.toUpperCase();
+ 
+  updateBattleScreen(m.a, m.b);
+  updateTournamentProgress();
+ 
+  // Callback: когда answer() вызовется, обрабатываем выбор турнира
+  state.sortCallback = (value) => {
+    // value: -1 = левый (a), 1 = правый (b). Ничья (0) в турнире невозможна.
+    if (value === 0) {
+      // на всякий случай: если ничья прилетела — игнорируем, ждём заново
+      tournamentShowMatch();
+      return;
+    }
+    const side = value === -1 ? 'a' : 'b';
+ 
+    // Двигаем персональную дельту (Эло оживает здесь!) + пишем в журнал
+    const winner = side === 'a' ? m.a : m.b;
+    const loser  = side === 'a' ? m.b : m.a;
+    let eloRes = null;
+    if (window.EloPersonal && winner.id && loser.id) {
+      // recordMatch(победитель, проигравший, 'a') → 'a' = первый победил
+      // Возвращает { a, b, deltaA, deltaB }:
+      //   a/deltaA относятся к winner, b/deltaB — к loser
+      eloRes = EloPersonal.recordMatch(winner.id, loser.id, 'a');
+    }
+ 
+    // Запись в журнал поединков — тот же формат, что у сортировки,
+    // плюс поля с дельтами Эло.
+    state.battleLog.push({
+      n: state.battleLog.length + 1,
+      leftId:  m.a.id,
+      rightId: m.b.id,
+      left:  m.a.name,
+      right: m.b.name,
+      outcome: side === 'a' ? 'left' : 'right',  // победила левая (a) или правая (b)
+      winner: winner.name,
+      loser:  loser.name,
+      round:  m.roundName,                        // «Полуфинал» и т.д.
+      // дельты Эло: сколько получил победитель и потерял проигравший
+      eloWinDelta:  eloRes ? eloRes.deltaA : null, // обычно +N
+      eloLoseDelta: eloRes ? eloRes.deltaB : null, // обычно -N
+      winnerId: winner.id,
+      loserId:  loser.id,
+    });
+ 
+    // Запоминаем, была ли это граница раунда ДО pick
+    const wasBoundaryComing = isLastMatchOfRound(T);
+ 
+    // Фиксируем результат в сетке
+    T.pick(side);
+ 
+    // Если раунд только что закрылся и турнир не окончен — пауза-уведомление
+    if (wasBoundaryComing && !T.isComplete() && T.currentMatch()) {
+      announceRoundBoundary(T, () => tournamentShowMatch());
+    } else {
+      tournamentShowMatch();
+    }
+  };
+}
+ 
+/** true, если текущий матч — последний в своём раунде (дальше граница). */
+function isLastMatchOfRound(T) {
+  if (T.phase === 'third') return true;
+  const rounds = T.rounds;
+  // найдём текущую позицию через currentMatch
+  const m = T.currentMatch();
+  if (!m || typeof m.round !== 'number') return false;
+  const round = rounds[m.round];
+  return m.matchIndex === round.length - 1;
+}
+ 
+/**
+ * Уведомление на границе раунда. Пока ПРОСТОЕ (текст + продолжение).
+ * В 4c здесь будет показ SVG-сетки.
+ */
+function announceRoundBoundary(T, next) {
+  const m = T.currentMatch();
+  const nextRoundName = m ? m.roundName : '';
+ 
+  const note = document.createElement('div');
+  note.className = 'round-boundary-note';
+  note.innerHTML = `
+    <div class="rbn-inner">
+      <div class="rbn-title">Сетка обновлена</div>
+      <div class="rbn-next">Дальше: ${esc(nextRoundName)}</div>
+      <div class="rbn-bracket" id="rbn-bracket-mount"></div>
+      <button class="btn-primary rbn-btn">Продолжить →</button>
+    </div>`;
+  document.body.appendChild(note);
+
+  // Сетку монтируем ОТДЕЛЬНО, уже когда контейнер в DOM и виден —
+  // иначе BracketViewer не сможет измерить размеры viewport под fit.
+  const mountEl = note.querySelector('#rbn-bracket-mount');
+  if (window.BracketSVG && window.BracketViewer && mountEl) {
+    const svg = BracketSVG.render(T, { showThird: false });
+    BracketViewer.mount(mountEl, svg);
+  }
+
+  requestAnimationFrame(() => note.classList.add('show'));
+ 
+  const cont = () => {
+    note.classList.remove('show');
+    setTimeout(() => note.remove(), 200);
+    next();
+  };
+  note.querySelector('.rbn-btn').addEventListener('click', cont);
+}
+ 
+/** Прогресс турнира: доля сыгранных матчей. */
+function updateTournamentProgress() {
+  const T = state.tournament;
+  if (!T) return;
+  // всего матчей = (size - 1) основных + 1 за третье (если size>=4)
+  const total = (T.size - 1) + (T.size >= 4 ? 1 : 0);
+  // сыграно = total минус оставшиеся
+  let played = 0;
+  T.rounds.forEach(round => round.forEach(mt => { if (mt.winner != null) played++; }));
+  if (T.thirdPlace.winner != null) played++;
+  const pct = total > 0 ? Math.round((played / total) * 100) : 0;
+ 
+  const bar = document.getElementById('progress-bar');
+  const txt = document.getElementById('progress-text');
+  if (bar) bar.style.width = pct + '%';
+  if (txt) txt.textContent = pct + '%';
+}
+ 
+/** Показ/скрытие кнопок ничьи и пропуска (в турнире их нет). */
+function setTournamentButtons(isTournament) {
+  const tie  = document.getElementById('btn-tie');
+  const skip = document.getElementById('btn-skip');
+  [tie, skip].forEach(b => { if (b) b.style.display = isTournament ? 'none' : ''; });
+}
+ 
+/** Завершение турнира → экран результатов (пока простой). */
+function finishTournament() {
+  const T = state.tournament;
+  const standings = T.standings();
+ 
+  // Собираем state.result в том же формате, что ждёт экран результатов:
+  // массив персонажей по местам. Призёры из standings, остальные —
+  // по текущему Эло (квалифицированные, затем отсечённые).
+  const placedIds = new Set(standings.map(s => s.id));
+  const podium = standings.map(s => s.char);
+ 
+  // Остальные квалифицированные (не призёры) — по Эло
+  const rest = T.qualified
+    .filter(c => !placedIds.has(c.id))
+    .sort((a, b) => eloOf(b) - eloOf(a));
+ 
+  // Отсечённые квалификацией — в самый низ
+  const cut = T.cut.slice().sort((a, b) => eloOf(b) - eloOf(a));
+ 
+  state.result = [...podium, ...rest, ...cut];
+ 
+  // Вернём боевой заголовок и кнопки в обычное состояние
+  const label = document.querySelector('.battle-label');
+  if (label) label.textContent = 'КТО ЛУЧШЕ?';
+  setTournamentButtons(false);
+  state.tournament = null;
+ 
+    // Сохраняем финальную сетку для показа в результатах
+    state.lastBracketSVG = (window.BracketSVG)
+      ? BracketSVG.render(T, { showThird: true })
+      : '';
+ 
+    showResultScreen();
+
+}
+ 
